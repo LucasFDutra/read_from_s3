@@ -1,0 +1,29 @@
+service: read-from-s3
+frameworkVersion: '2'
+
+custom:
+  bucketName: muly-dev
+
+provider:
+  name: aws
+  runtime: python3.8
+  region: us-east-1
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:PutObject
+      Resource: 'arn:aws:s3:::${self:custom.bucketName}/*'
+
+functions:
+  reads3:
+    handler: handler.lambda_handler
+    events:
+      - s3:
+          bucket: ${self:custom.bucketName}
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: uploads/
+
+plugins:
+  - serverless-localstack
