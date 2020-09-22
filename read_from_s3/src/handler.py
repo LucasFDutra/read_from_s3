@@ -15,7 +15,7 @@ def get_client():
         client_config = {
             'service_name': 's3'
         }
-    return boto3.client(**client_config)
+    return client_config
 
 def save_in_s3(data, client, bucket):
     rows = [','.join(list(data.columns))]
@@ -50,5 +50,6 @@ def main(event, client):
     return save_in_s3(data, client, bucket)
 
 def lambda_handler(event, context):
-    client = get_client()
+    client_config = get_client()
+    client = boto3.client(**client_config)
     return main(event, client)
