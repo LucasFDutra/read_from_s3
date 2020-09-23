@@ -7,3 +7,6 @@ def sls_deploy():
     os.system('pip install -r requirements.txt -t '+path_code_to)
     os.system('cd '+ path_code_to +' && sls deploy')
     os.system('rm -r '+ path_code_to)
+
+if __name__ == "__main__":
+    sls_deploy()
