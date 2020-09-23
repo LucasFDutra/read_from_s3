@@ -37,7 +37,6 @@ def get_mean(data):
 
 def read_csv(file_path):
     data = pd.read_csv(file_path)
-    print(data)
     return data
 
 def main(event, client):
