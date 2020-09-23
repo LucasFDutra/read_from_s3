@@ -512,7 +512,7 @@ def test_save_in_s3():
 
 ---
 
-#### 3.5.2.3 add_mean_to_data_frame
+#### add_mean_to_data_frame
 
 - Função: Recebe o dataframe e adiciona a linha com o valor da média.
 
@@ -535,7 +535,7 @@ def test_add_mean_to_data_frame():
 
 ---
 
-#### 3.5.2.4 get_mean
+#### get_mean
 
 - Função: Recebe o dataframe e retorna a média dos pontos.
 
@@ -554,7 +554,7 @@ def test_get_mean():
 
 ---
 
-#### 3.5.2.5 read_csv
+#### read_csv
 
 - Função: Retorna o dataframe criado pelo pandas a partir do caminho do arquivo.
 
@@ -575,7 +575,7 @@ def test_read_csv():
 
 ---
 
-#### 3.5.2.6 main
+#### main
 
 - Função: A função main, identifica o bucket, e a key por meio do event. A key é o caminho dentro do bucket que o aquivo criado está. E por meio da função get_object o client consegue buscar esse arquivo, o qual é lido pelo pandas e transformado em dataframe dentro da função `read_csv`, e depois calcula a média e insere no dataframe e então salva no s3 novamente. Veja que essa função na verdade percorre toda a aplicação, por isso eu não sei bem se deveria ter colocado ela como teste unitário, mas na dúvida deixei aqui.
 
