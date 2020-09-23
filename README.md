@@ -437,8 +437,7 @@ Para os testes de unidade, eu vou mostrar a função em sí e o código dela.
 
 #### get_client
 
-- Função:
-  - Essa função seleciona as configurações que o client deve ter de acordo com o ambiente. Se a variável de ambiente LOCALSTACK_HOSTNAME existir, então quer dizer que estou dentro do localstack e não quero me conectar com a aws de verdade.
+- Função: Essa função seleciona as configurações que o client deve ter de acordo com o ambiente. Se a variável de ambiente LOCALSTACK_HOSTNAME existir, então quer dizer que estou dentro do localstack e não quero me conectar com a aws de verdade.
 
 ```Python
 def get_client():
@@ -457,7 +456,7 @@ def get_client():
 ```
 
 - Testes:
-  - Terei dois testes para essa função, sendo que um cria a variável de ambiente LOCALSTACK_HOSTNAME e espera que as configurações que retornarem sejam as referentes ao localstack
+    - Teste 1: Cria a variável de ambiente LOCALSTACK_HOSTNAME e espera que as configurações que retornarem sejam as referentes ao localstack.
 
 ```Python
 def test_get_client_local():
@@ -471,6 +470,9 @@ def test_get_client_local():
     res = handler.get_client()
     assert res == correct_res
 ```
+
+    - Teste 2: Apaga a variável de ambiente LOCALSTACK_HOSTNAME, para garantir que ela não exista no sistema, e espera que as configurações que retornarem sejam as referentes a aws.
+
 ```Python
 def test_get_client_cloud():
     del os.environ['LOCALSTACK_HOSTNAME']
@@ -485,6 +487,8 @@ def test_get_client_cloud():
 
 #### save_in_s3
 
+- Função: Pega os dados de um dataframe chamado `data` e converte isso para uma string gigante e depois utiliza o método put_object para adicionar o arquivo ao bucket e retorna True.
+
 ```Python
 def save_in_s3(data, client, bucket):
     rows = [','.join(list(data.columns))]
@@ -496,9 +500,21 @@ def save_in_s3(data, client, bucket):
     print('Arquivo '+ file_name +' subiu com sucesso')
     return True
 ```
+
+- Teste: Passa para a função o client mocado, e os dados criado pelo dicionário e convertidos em dataframe pelo pandas, e então verifica se a função retorna True, o que indica que ela terminou sem erros
+
+```Python
+def test_save_in_s3():
+    client = Client.Client()
+    data = pd.DataFrame({'NAME': {0: 'a', 1: 'b', 2: 'c', 3: 'MEAN'}, 'POINTS': {0: 10, 1: 8, 2: 7, 3: mean_value}})
+    assert handler.save_in_s3(data, client, 'muly-dev') == True
+```
+
 ---
 
 #### 3.5.2.3 add_mean_to_data_frame
+
+- Função: Recebe o dataframe e adiciona a linha com o valor da média.
 
 ```Python
 def add_mean_to_data_frame(data, mean):
@@ -506,29 +522,62 @@ def add_mean_to_data_frame(data, mean):
     new_data = pd.concat([data, new_line]).reset_index(drop=True)
     return new_data
 ```
+
+- Teste: Passa os dados do csv (dentro de files), converte a resposta para um dicionário e compara com o que deveria ser
+
+```Python
+def test_add_mean_to_data_frame():
+    test_data = pd.read_csv(test_csv_file_path)
+    res = handler.add_mean_to_data_frame(test_data, mean_value).to_dict()
+    correct_res = {'NAME': {0: 'a', 1: 'b', 2: 'c', 3: 'MEAN'}, 'POINTS': {0: 10, 1: 8, 2: 7, 3: mean_value}}
+    assert res == correct_res
+```
+
 ---
 
 #### 3.5.2.4 get_mean
+
+- Função: Recebe o dataframe e retorna a média dos pontos.
 
 ```Python
 def get_mean(data):
     return data.POINTS.mean()
 ```
 
+- Teste: Envia um csv (dentro de files) e compara a resposta de retorno com o que deveria ser
+
+```Python
+def test_get_mean():
+    test_data = pd.read_csv(test_csv_file_path)
+    assert handler.get_mean(test_data) == mean_value
+```
+
 ---
 
 #### 3.5.2.5 read_csv
 
+- Função: Retorna o dataframe criado pelo pandas a partir do caminho do arquivo.
+
 ```Python
 def read_csv(file_path):
     data = pd.read_csv(file_path)
-    print(data)
     return data
+```
+
+- Teste: Envia o arquivo csv (dentro de files) e compara o retorno com um dicionário.
+
+```Python
+def test_read_csv():
+    data = handler.read_csv(test_csv_file_path).to_dict()
+    correct_res = {'NAME': {0: 'a', 1: 'b', 2: 'c'}, 'POINTS': {0: 10, 1: 8, 2: 7}}
+    assert data == correct_res
 ```
 
 ---
 
 #### 3.5.2.6 main
+
+- Função: A função main, identifica o bucket, e a key por meio do event. A key é o caminho dentro do bucket que o aquivo criado está. E por meio da função get_object o client consegue buscar esse arquivo, o qual é lido pelo pandas e transformado em dataframe dentro da função `read_csv`, e depois calcula a média e insere no dataframe e então salva no s3 novamente. Veja que essa função na verdade percorre toda a aplicação, por isso eu não sei bem se deveria ter colocado ela como teste unitário, mas na dúvida deixei aqui.
 
 ```Python
 def main(event, client):
@@ -540,6 +589,17 @@ def main(event, client):
     data = add_mean_to_data_frame(data, mean)
     return save_in_s3(data, client, bucket)
 ```
+
+- Teste: Passa o client mockado, e o arquivo event.json presente em files. Assim quando a função `main` utilizar a função` get_object` na verdade ela receberá o retorno com a Key (como mostrei no mock), e essa key por sua vez aponta para o arquivo class.csv dentro de files. Assim eu consigo fazer o pandas ler o arquivo de testes, e não buscar um dentro da cloud. Então depois disso eu comparo se o retorno da função foi igual a True, já que esse é o retorno da função `save_in_s3` que é o que a main retorna.
+
+```Python
+def test_main():
+    client = Client.Client()
+    with open(test_event_file_path, 'r') as event_file:
+        event = json.load(event_file)
+    assert handler.main(event, client) == True
+```
+
 ---
 
 ### 3.5.3 INTEGRATION
