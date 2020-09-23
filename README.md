@@ -367,3 +367,225 @@ Eu preferi fazer esse processo de copiar a pasta, instalar as dependências dent
 Esse arquivo contém as libs que serão necessárias de instalar no pacote serverless, facilitando a vida, pois assim eu consigo instalar o que é necessário com um comando apenas.
 
 ## 3.5 TESTES
+
+### 3.5.1 MOCK
+
+Quando estamos mocando algo, estamos escondendo algo. E no caso de um teste, estamos escondendo alguma função, chamada a apis, objetos...
+
+Fazemos isso porque essas partes de códigos nos já sabemos que elas funcionam corretamente e adicioná-las ao nosso teste acaba gerando lentidão. E também porque essa parte em específico não faz parte do teste que queremos executar. Pense no exemplo a seguir:
+
+- Você tem uma função que faz uma requeste a uma api de terceiros, se você deixar a sua função ir até essa api então vocês não vai estar testando somente sua função, mas também a api. Então além de testar coisas que você não quer, a resposta da api vai demorar e deixar o teste lento. Então uma forma interessante de fazer isso é forçar o sua função a buscar um arquivo que tem a exata mesma estrutura do retorno da api. Mas para fazer isso você precisa fazer injeção de dependências. Para entender isso vamos para um exemplo, que é o meu caso aqui. Eu preciso instânciar um cliente da sdk da aws para que esse cliente busque e envie arquivos para o meu bucket. Agora imagine se na minha função responsável por inserir o arquivo eu fizesse o seguinte:
+
+```Python
+def save_in_s3(data, bucket):
+    client = boto3.client('s3')
+    client.send_file(data, bucket)
+    return True
+```
+
+> OBS.: Esse método send_file não existe, eu só coloquei isso para ficar mais simples.
+
+Nesse caso eu poderia testar minha aplicação, mas é inevitável que o client instânciado seja o cliente real da aws, e isso vai fazer com que no momento em que eu rode o teste o arquivo vá realmente parar dentro da aws. E eu não quero isso. Logo eu preciso encontrar uma forma de evitar isso. E essa forma é injetando o client dentro da função, ou seja:
+
+```Python
+def save_in_s3(data, bucket, client):
+    client.send_file(data, bucket)
+    return True
+```
+
+Pronto, agora eu passo o client como parâmetro para a função, e nisso eu posso criar uma classe client fake, que tenha o método send_file, que recebe os parâmetros da mesma forma que o client original, mas que nesse caso não faz nada com o dado (se eu estivesse buscando algo, então eu apontaria um arquivo, que foi o que fiz no outro caso).
+
+Assim o arquivo de mock fica da seguinte forma:
+
+```Python
+class Client():
+    def put_object(self, Body, Bucket, Key, ContentType):
+        return True
+
+    def get_object(self, Bucket, Key):
+        return {
+            'Body': Key
+        }
+```
+
+E dentro do meu teste eu passo:
+
+```Python
+from read_from_s3.src import handler
+from read_from_s3.test.utils.mock import Client
+import pandas as pd
+
+mean_value = (10 + 8 + 7)/3
+test_csv_file_path = os.path.join('read_from_s3', 'test', 'utils', 'files', 'class.csv')
+
+def test_save_in_s3():
+    client = Client.Client()
+    data = pd.DataFrame({'NAME': {0: 'a', 1: 'b', 2: 'c', 3: 'MEAN'}, 'POINTS': {0: 10, 1: 8, 2: 7, 3: mean_value}})
+    assert handler.save_in_s3(data, client, 'muly-dev') == True
+
+def test_read_csv():
+    data = handler.read_csv(test_csv_file_path).to_dict()
+    correct_res = {'NAME': {0: 'a', 1: 'b', 2: 'c'}, 'POINTS': {0: 10, 1: 8, 2: 7}}
+    assert data == correct_res
+```
+
+Veja que quando eu rodo o teste as funções recebem o client instanciado a partir do meu mock, que em um caso não faz nada e no outro aponta para um arquivo do meu pc (Key, que é o csv dentro de files)
+
+### 3.5.2 UNIT
+
+Para os testes de unidade, eu vou mostrar a função em sí e o código dela.
+
+#### get_client
+
+- Função:
+  - Essa função seleciona as configurações que o client deve ter de acordo com o ambiente. Se a variável de ambiente LOCALSTACK_HOSTNAME existir, então quer dizer que estou dentro do localstack e não quero me conectar com a aws de verdade.
+
+```Python
+def get_client():
+    if ('LOCALSTACK_HOSTNAME' in os.environ):
+        client_config = {
+            'service_name': 's3',
+            'aws_access_key_id': '123',
+            'aws_secret_access_key': '123',
+            'endpoint_url': 'http://'+os.environ['LOCALSTACK_HOSTNAME']+':4566'
+        }
+    else:
+        client_config = {
+            'service_name': 's3'
+        }
+    return client_config
+```
+
+- Testes:
+  - Terei dois testes para essa função, sendo que um cria a variável de ambiente LOCALSTACK_HOSTNAME e espera que as configurações que retornarem sejam as referentes ao localstack
+
+```Python
+def test_get_client_local():
+    os.environ['LOCALSTACK_HOSTNAME'] = 'localhost'
+    correct_res = {
+        'service_name': 's3',
+        'aws_access_key_id': '123',
+        'aws_secret_access_key': '123',
+        'endpoint_url': 'http://localhost:4566'
+    }
+    res = handler.get_client()
+    assert res == correct_res
+```
+```Python
+def test_get_client_cloud():
+    del os.environ['LOCALSTACK_HOSTNAME']
+    correct_res = {
+        'service_name': 's3'
+    }
+    res = handler.get_client()
+    assert res == correct_res
+```
+
+---
+
+#### save_in_s3
+
+```Python
+def save_in_s3(data, client, bucket):
+    rows = [','.join(list(data.columns))]
+    for row in data.values:
+        rows.append(','.join(map(str, row)))
+    rows = '\n'.join(rows)
+    file_name = 'output/final_data.csv'
+    client.put_object(Body=rows, Bucket=bucket, Key=file_name, ContentType='csv') 
+    print('Arquivo '+ file_name +' subiu com sucesso')
+    return True
+```
+---
+
+#### 3.5.2.3 add_mean_to_data_frame
+
+```Python
+def add_mean_to_data_frame(data, mean):
+    new_line = pd.DataFrame([['MEAN', mean]], columns=['NAME', 'POINTS'])
+    new_data = pd.concat([data, new_line]).reset_index(drop=True)
+    return new_data
+```
+---
+
+#### 3.5.2.4 get_mean
+
+```Python
+def get_mean(data):
+    return data.POINTS.mean()
+```
+
+---
+
+#### 3.5.2.5 read_csv
+
+```Python
+def read_csv(file_path):
+    data = pd.read_csv(file_path)
+    print(data)
+    return data
+```
+
+---
+
+#### 3.5.2.6 main
+
+```Python
+def main(event, client):
+    bucket = event['Records'][0]['s3']['bucket']['name']
+    key = event['Records'][0]['s3']['object']['key']
+    obj = client.get_object(Bucket=bucket, Key=key)['Body']
+    data = read_csv(obj)
+    mean = get_mean(data)
+    data = add_mean_to_data_frame(data, mean)
+    return save_in_s3(data, client, bucket)
+```
+---
+
+### 3.5.3 INTEGRATION
+
+De testes de integração eu fiz somente um. Nesse teste a função `test_localstack` utiliza a sdk da aws, com o endpoint configurado para o container, e envia um arquivo para o bucket muly-dev, e então tenta resgatar a resposta da lambda dentro de um loop, que roda até chegar algum arquivo na pasta de output ou até 50 segundos. Então o teste lê o arquivo que retornou e compara com o que deveria ser.
+
+```Python
+import boto3
+import time
+import pandas as pd
+import os
+
+test_csv_file_path = os.path.join('read_from_s3', 'test', 'utils', 'files', 'class.csv')
+mean_value = (10 + 8 + 7)/3
+
+def mount_csv(data):
+    rows = [','.join(list(data.columns))]
+    for row in data.values:
+        rows.append(','.join(map(str, row)))
+    rows = '\n'.join(rows)
+    return rows
+
+def test_localstack():
+    config_s3 = {
+        'service_name': 's3',
+        'aws_access_key_id': '123',
+        'aws_secret_access_key': '123',
+        'endpoint_url': 'http://localhost:4566'
+    }
+
+    bucket = 'muly-dev'
+    input_key = 'uploads/class.csv'
+    output_key = 'output/final_data.csv'
+
+    test_file = mount_csv(pd.read_csv(test_csv_file_path))
+    client = boto3.client(**config_s3)
+    client.put_object(Body=test_file, Bucket=bucket, Key=input_key, ContentType='csv')
+
+    n_files = 0
+    initial_time = time.time()
+    while ((n_files == 0) and ((time.time() - initial_time) < 50)):
+        objects_list = client.list_objects_v2(Bucket=bucket, Prefix='output')
+        n_files = objects_list['KeyCount']
+
+    obj = client.get_object(Bucket=bucket, Key=output_key)['Body']
+    res = pd.read_csv(obj).to_dict()
+    correct_res = {'NAME': {0: 'a', 1: 'b', 2: 'c', 3: 'MEAN'}, 'POINTS': {0: 10, 1: 8, 2: 7, 3: mean_value}}
+    assert res == correct_res
+```
