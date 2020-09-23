@@ -39,6 +39,7 @@ def read_csv(file_path):
     data = pd.read_csv(file_path)
     return data
 
+
 def main(event, client):
     bucket = event['Records'][0]['s3']['bucket']['name']
     key = event['Records'][0]['s3']['object']['key']
