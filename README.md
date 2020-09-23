@@ -31,7 +31,7 @@ Esse valor será calculado pela biblioteca do Pandas. Não existe real motivo em
 
 ## 1.3 ESQUEMA DE FUNCIONAMENTO
 <h1 align="center">
-    <img src = './img/fig_01.png' width=700/>
+    <img src = './img/fig_01.png'/>
 </h1>
 
 # 📑 2. COMO USAR
