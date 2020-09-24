@@ -8,7 +8,7 @@ Ou seja, cai um csv em uma dada pasta do bucket, a lambda é ativada, abre o csv
 
 ## 1.1 O CSV DE INPUT
 
-O arquivo que usarei como teste se encontra [aqui](read_from_s3/read_from_s3/test/utils/files/class.csv) e a tabela abaixo mostra como ele deve ser;
+O arquivo que usarei como teste se encontra [aqui](read_from_s3/test/utils/files/class.csv) e a tabela abaixo mostra como ele deve ser;
 
 |NAME|POINTS|
 |-|-|
