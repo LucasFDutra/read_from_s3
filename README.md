@@ -8,7 +8,7 @@ Ou seja, cai um csv em uma dada pasta do bucket, a lambda é ativada, abre o csv
 
 ## 1.1 O CSV DE INPUT
 
-O arquivo que usarei como teste se encontra [aqui]('./read_from_s3/read_from_s3/test/utils/files/class.csv') e a tabela abaixo mostra como ele deve ser;
+O arquivo que usarei como teste se encontra [aqui](read_from_s3/read_from_s3/test/utils/files/class.csv) e a tabela abaixo mostra como ele deve ser;
 
 |NAME|POINTS|
 |-|-|
@@ -214,7 +214,7 @@ Mas basicamente, através dele nós podemos criar nossa infraestrutura através 
 
 ### 3.2.1 O ARQUIVO SERVERLESS.YML
 
-Toda a estrutura é descrita dentro do arquivo serverless.yml, que está [aqui]('./read_from_s3/src/serverless.yml'). No meu caso eu queria descrever uma função lambda que ativaria assim que um arquivo fosse criado dentro de um bucket chamado 'muly-dev', mais especificamente dentro da pasta 'uploads', processasse isso e devolvesse o arquivo para dentro do mesmo bucket, mas dentro da pasta 'output'. Para isso eu precisaria descrever no meu arquivo o bucket, a função e seu evento de ativação, e as permissões para essa função. Nisso o arquivo ficou da seguinte forma:
+Toda a estrutura é descrita dentro do arquivo serverless.yml, que está [aqui](read_from_s3/src/serverless.yml). No meu caso eu queria descrever uma função lambda que ativaria assim que um arquivo fosse criado dentro de um bucket chamado 'muly-dev', mais especificamente dentro da pasta 'uploads', processasse isso e devolvesse o arquivo para dentro do mesmo bucket, mas dentro da pasta 'output'. Para isso eu precisaria descrever no meu arquivo o bucket, a função e seu evento de ativação, e as permissões para essa função. Nisso o arquivo ficou da seguinte forma:
 
 ```yml
 service: read-from-s3
